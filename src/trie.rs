@@ -191,8 +191,8 @@ impl<K: Borrow<[u8]>, V> Trie<K, V> {
     /// Trains a word
     pub fn train_word(&mut self, key: K) -> bool {
         if let Some(ref mut root) = self.root {
-            // Don't train root node
             /*
+            // Don't train root node
             let mut trained = false;
             let branch = unsafe { root.unwrap_branch_mut() };
             for entry in branch.iter_mut() {
@@ -204,6 +204,25 @@ impl<K: Borrow<[u8]>, V> Trie<K, V> {
         } else {
             false
         }
+    }
+
+    /// Finish training
+    pub fn finish_train(&mut self) {
+        if let Some(ref mut root) = self.root {
+            root.set_weight(0);
+        }
+    }
+
+    /// Finds items with given prefix, ordered by weight
+    pub fn find_ordered<'a>(&'a self, key: K, limit: usize) -> Vec<(&'a K, &'a V, u32)> {
+        let sub = match self.subtrie(key.borrow()).root {
+            Some(s) => s,
+            None => return vec![],
+        };
+        let mut out = Vec::with_capacity(100);
+        Self::find_ord_rec(sub, &mut out, limit);
+        out.truncate(limit);
+        out
     }
 
     /// Iterate over all elements with a given prefix.
@@ -361,6 +380,24 @@ impl<K: Borrow<[u8]>, V> Trie<K, V> {
     pub fn entry(&mut self, key: K) -> Entry<K, V> {
         make_entry(key, &mut self.root)
     }
+
+    fn find_ord_rec<'a>(node: &'a Node<K, V>, output: &mut Vec<(&'a K, &'a V, u32)>, limit: usize) {
+        match node {
+            Node::Leaf(l) => {
+                output.push((&l.key, &l.val, l.weight()));
+            }
+            Node::Branch(b) => {
+                let mut entries = b.iter().collect::<Vec<_>>();
+                entries.sort_by(|a, b| a.get_weight().cmp(&b.get_weight()).reverse());
+                for entry in entries {
+                    Self::find_ord_rec(entry, output, limit);
+                    if output.len() >= limit && limit > 0 {
+                        return;
+                    }
+                }
+            }
+        }
+    }
 }
 
 impl<'a, K: Borrow<[u8]>, V, Q: ?Sized> Index<&'a Q> for Trie<K, V>
@@ -498,5 +535,16 @@ impl<V> Trie<BString, V> {
         Q: Borrow<str>,
     {
         self.train_word(key.borrow().into())
+    }
+
+    pub fn find_ordered_str<'a, Q: ?Sized>(
+        &'a mut self,
+        key: &'a Q,
+        limit: usize,
+    ) -> Vec<(&'a BString, &'a V, u32)>
+    where
+        Q: Borrow<str>,
+    {
+        self.find_ordered(key.borrow().into(), limit)
     }
 }
