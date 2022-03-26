@@ -141,10 +141,10 @@ impl<K: Borrow<[u8]>, V> Branch<K, V> {
     }
 
     #[inline]
-    pub fn train_word(&mut self, key: &[u8]) -> bool {
+    pub fn train_word_n(&mut self, key: &[u8], n: u32) -> bool {
         let has_child = self.child(key.borrow()).is_some();
         if has_child {
-            self.weight += 1;
+            self.weight += n;
         }
 
         if let Some(ref mut child) = self.child_mut(key.borrow()) {
@@ -344,15 +344,19 @@ impl<K: Borrow<[u8]>, V> Node<K, V> {
         }
     }
 
-    pub fn train_word(&mut self, key: &[u8]) -> bool {
+    pub fn train_word_n(&mut self, key: &[u8], n: u32) -> bool {
         match *self {
             Node::Leaf(ref mut leaf) if leaf.key_slice() == key => {
-                leaf.weight += 1;
+                leaf.weight += n;
                 true
             }
             Node::Leaf(..) => false,
-            Node::Branch(ref mut branch) => branch.train_word(key),
+            Node::Branch(ref mut branch) => branch.train_word_n(key, 1),
         }
+    }
+
+    pub fn train_word(&mut self, key: &[u8]) -> bool {
+        self.train_word_n(key, 1)
     }
 
     pub fn finalize_training(&mut self, word_count: usize) {

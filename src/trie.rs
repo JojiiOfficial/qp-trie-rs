@@ -188,22 +188,18 @@ impl<K, V> Trie<K, V> {
 }
 
 impl<K: Borrow<[u8]>, V> Trie<K, V> {
-    /// Trains a word
-    pub fn train_word(&mut self, key: K) -> bool {
+    /// Trains a word with n
+    pub fn train_word_n(&mut self, key: K, n: u32) -> bool {
         if let Some(ref mut root) = self.root {
-            /*
-            // Don't train root node
-            let mut trained = false;
-            let branch = unsafe { root.unwrap_branch_mut() };
-            for entry in branch.iter_mut() {
-                trained = trained | entry.train_word(key.borrow());
-            }
-            trained
-            */
-            root.train_word(key.borrow())
+            root.train_word_n(key.borrow(), n)
         } else {
             false
         }
+    }
+
+    /// Trains a word
+    pub fn train_word(&mut self, key: K) -> bool {
+        self.train_word_n(key, 1)
     }
 
     /// Finish training
@@ -530,6 +526,13 @@ impl<V> Trie<BString, V> {
         self.remove_prefix(AsRef::<BStr>::as_ref(prefix.borrow()))
     }
 
+    pub fn train_word_str_n<'a, Q: ?Sized>(&mut self, key: &'a Q, n: u32) -> bool
+    where
+        Q: Borrow<str>,
+    {
+        self.train_word_n(key.borrow().into(), n)
+    }
+
     pub fn train_word_str<'a, Q: ?Sized>(&mut self, key: &'a Q) -> bool
     where
         Q: Borrow<str>,
@@ -538,7 +541,7 @@ impl<V> Trie<BString, V> {
     }
 
     pub fn find_ordered_str<'a, Q: ?Sized>(
-        &'a mut self,
+        &'a self,
         key: &'a Q,
         limit: usize,
     ) -> Vec<(&'a BString, &'a V, u32)>
