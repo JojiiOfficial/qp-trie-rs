@@ -13,12 +13,29 @@ use util::{nybble_index, nybble_mismatch};
 pub struct Leaf<K, V> {
     pub key: K,
     pub val: V,
+    pub weight: u32,
 }
 
 impl<K, V> Leaf<K, V> {
     #[inline]
     pub fn new(key: K, val: V) -> Leaf<K, V> {
-        Leaf { key, val }
+        Leaf {
+            key,
+            val,
+            weight: 0,
+        }
+    }
+
+    /// Sets the weight of the leaf
+    #[inline]
+    pub fn set_weight(&mut self, weight: u32) {
+        self.weight = weight;
+    }
+
+    /// Returns the weight of the leaf
+    #[inline]
+    pub fn weight(&self) -> u32 {
+        self.weight
     }
 }
 
@@ -39,6 +56,7 @@ pub struct Branch<K, V> {
     // to different values of the nybble at the choice point for given keys.
     choice: usize,
     entries: Sparse<Node<K, V>>,
+    weight: u32,
 }
 
 impl<K: fmt::Debug, V: fmt::Debug> fmt::Debug for Branch<K, V> {
@@ -46,6 +64,7 @@ impl<K: fmt::Debug, V: fmt::Debug> fmt::Debug for Branch<K, V> {
         f.debug_struct("Branch")
             .field("choice", &self.choice)
             .field("entries", &self.entries)
+            .field("weight", &self.weight)
             .finish()
     }
 }
@@ -57,7 +76,20 @@ impl<K: Borrow<[u8]>, V> Branch<K, V> {
         Branch {
             choice,
             entries: Sparse::new(),
+            weight: 0,
         }
+    }
+
+    /// Sets the weight of the branch
+    #[inline]
+    pub fn set_weight(&mut self, weight: u32) {
+        self.weight = weight;
+    }
+
+    /// Returns the weight of the branch
+    #[inline]
+    pub fn weight(&self) -> u32 {
+        self.weight
     }
 
     // Return the nybble index corresponding to the branch's choice point in the given key.
@@ -106,6 +138,20 @@ impl<K: Borrow<[u8]>, V> Branch<K, V> {
             Some(child) => child.get(key),
             None => None,
         }
+    }
+
+    #[inline]
+    pub fn train_word(&mut self, key: &[u8]) -> bool {
+        let has_child = self.child(key.borrow()).is_some();
+        if has_child {
+            self.weight += 1;
+        }
+
+        if let Some(ref mut child) = self.child_mut(key.borrow()) {
+            return child.train_word(key);
+        }
+
+        false
     }
 
     // Mutably borrow the value for the given key, if it exists, mutually recursing through
@@ -222,11 +268,13 @@ impl<K: fmt::Debug, V: fmt::Debug> fmt::Debug for Node<K, V> {
                 .debug_struct("Leaf")
                 .field("key", &leaf.key)
                 .field("val", &leaf.val)
+                .field("weight", &leaf.weight)
                 .finish(),
             Node::Branch(ref branch) => f
                 .debug_struct("Branch")
                 .field("choice", &branch.choice)
                 .field("entries", &branch.entries)
+                .field("weight", &branch.weight)
                 .finish(),
         }
     }
@@ -237,6 +285,24 @@ impl<K: Borrow<[u8]>, V> Node<K, V> {
     // borrowchecker. All of them use `debug_unreachable!` internally, which means that in release,
     // a misuse can cause undefined behavior (because the tried-to-unwrap-wrong-thing code path is
     // likely to be statically eliminated.)
+
+    /// Returns the weight of the Node
+    #[inline]
+    pub fn get_weight(&self) -> u32 {
+        match self {
+            Node::Leaf(l) => l.weight(),
+            Node::Branch(b) => b.weight(),
+        }
+    }
+
+    /// Sets the weight of the node
+    #[inline]
+    pub fn set_weight(&mut self, weight: u32) {
+        match self {
+            Node::Leaf(l) => l.set_weight(weight),
+            Node::Branch(b) => b.set_weight(weight),
+        }
+    }
 
     #[inline]
     pub unsafe fn unwrap_leaf(self) -> Leaf<K, V> {
@@ -276,6 +342,22 @@ impl<K: Borrow<[u8]>, V> Node<K, V> {
             Node::Leaf(..) => debug_unreachable!(),
             Node::Branch(ref mut branch) => branch,
         }
+    }
+
+    pub fn train_word(&mut self, key: &[u8]) -> bool {
+        match *self {
+            Node::Leaf(ref mut leaf) if leaf.key_slice() == key => {
+                leaf.weight += 1;
+                true
+            }
+            Node::Leaf(..) => false,
+            Node::Branch(ref mut branch) => branch.train_word(key),
+        }
+    }
+
+    pub fn finalize_training(&mut self, word_count: usize) {
+        // TODO
+        //self.root.finalize_training(word_count);
     }
 
     // Borrow the associated leaf for a given key, if it exists in the trie.

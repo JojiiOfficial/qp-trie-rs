@@ -73,6 +73,7 @@ pub struct Trie<K, V> {
 }
 
 impl<K, V> Default for Trie<K, V> {
+    #[inline]
     fn default() -> Self {
         Trie::new()
     }
@@ -91,6 +92,7 @@ impl<K, V> IntoIterator for Trie<K, V> {
     type IntoIter = IntoIter<K, V>;
     type Item = (K, V);
 
+    #[inline]
     fn into_iter(self) -> Self::IntoIter {
         self.root
             .map(Node::into_iter)
@@ -99,6 +101,7 @@ impl<K, V> IntoIterator for Trie<K, V> {
 }
 
 impl<K: Borrow<[u8]>, V> FromIterator<(K, V)> for Trie<K, V> {
+    #[inline]
     fn from_iter<I>(iterable: I) -> Trie<K, V>
     where
         I: IntoIterator<Item = (K, V)>,
@@ -185,6 +188,24 @@ impl<K, V> Trie<K, V> {
 }
 
 impl<K: Borrow<[u8]>, V> Trie<K, V> {
+    /// Trains a word
+    pub fn train_word(&mut self, key: K) -> bool {
+        if let Some(ref mut root) = self.root {
+            // Don't train root node
+            /*
+            let mut trained = false;
+            let branch = unsafe { root.unwrap_branch_mut() };
+            for entry in branch.iter_mut() {
+                trained = trained | entry.train_word(key.borrow());
+            }
+            trained
+            */
+            root.train_word(key.borrow())
+        } else {
+            false
+        }
+    }
+
     /// Iterate over all elements with a given prefix.
     pub fn iter_prefix<'a, Q: ?Sized>(&self, prefix: &'a Q) -> Iter<K, V>
     where
@@ -470,5 +491,12 @@ impl<V> Trie<BString, V> {
         Q: Borrow<str>,
     {
         self.remove_prefix(AsRef::<BStr>::as_ref(prefix.borrow()))
+    }
+
+    pub fn train_word_str<'a, Q: ?Sized>(&mut self, key: &'a Q) -> bool
+    where
+        Q: Borrow<str>,
+    {
+        self.train_word(key.borrow().into())
     }
 }

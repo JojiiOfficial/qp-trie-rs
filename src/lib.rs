@@ -15,7 +15,7 @@ mod serialization;
 
 mod entry;
 mod iter;
-mod node;
+pub mod node;
 mod sparse;
 mod subtrie;
 mod trie;

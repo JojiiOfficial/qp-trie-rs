@@ -45,6 +45,11 @@ impl<'a, K, V> Iter<'a, K, V> {
     pub fn new(node: &'a Node<K, V>) -> Iter<'a, K, V> {
         Iter { stack: vec![node] }
     }
+
+    #[inline]
+    pub fn raw_node_iter(&self) -> impl Iterator<Item = &Node<K, V>> {
+        self.stack.iter().map(|i| *i)
+    }
 }
 
 impl<'a, K, V> Default for Iter<'a, K, V> {
