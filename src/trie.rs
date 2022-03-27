@@ -217,7 +217,9 @@ impl<K: Borrow<[u8]>, V> Trie<K, V> {
         };
         let mut out = Vec::with_capacity(100);
         Self::find_ord_rec(sub, &mut out, limit);
-        out.truncate(limit);
+        if limit > 0 {
+            out.truncate(limit);
+        }
         out
     }
 
@@ -377,7 +379,7 @@ impl<K: Borrow<[u8]>, V> Trie<K, V> {
         make_entry(key, &mut self.root)
     }
 
-    fn find_ord_rec<'a>(node: &'a Node<K, V>, output: &mut Vec<(&'a K, &'a V, u32)>, limit: usize) {
+    pub fn find_ord_rec<'a>(node: &'a Node<K, V>, output: &mut Vec<(&'a K, &'a V, u32)>, limit: usize) {
         match node {
             Node::Leaf(l) => {
                 output.push((&l.key, &l.val, l.weight()));

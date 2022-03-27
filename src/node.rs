@@ -359,7 +359,7 @@ impl<K: Borrow<[u8]>, V> Node<K, V> {
         self.train_word_n(key, 1)
     }
 
-    pub fn finalize_training(&mut self, word_count: usize) {
+    pub fn finalize_training(&mut self, _word_count: usize) {
         // TODO
         //self.root.finalize_training(word_count);
     }
